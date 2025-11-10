@@ -1,4 +1,4 @@
-# GitHub to Slack Notifier
+# GitHub to Slack Notifiers (Issues + PRs)
 
 This repository contains a setup to notify a Slack channel about new issues created in specified GitHub repositories. The notification system is built using a Python script which is executed through a GitHub Actions workflow. Keep in  mind that it will fail after 90 days of repository inactivity (that's a GitHub policy), so you might want to setup the crons differently. 
 
@@ -95,4 +95,45 @@ The workflow is triggered every 10 minutes, ensuring that your Slack channel is 
 ## Notifications
 
 Notifications include the title of the new issue and a link to the issue on GitHub, and are sent to the Slack channel configured via the Slack webhook.
+
+---
+
+## PRs Notifier
+
+This repository also includes an action that posts summaries of open pull requests for each repository listed in `repo_config.yaml`.
+
+- Script: `scripts/get_pr_data_to_slack.py`
+- Workflow: `.github/workflows/get-pr-data.yml`
+- Secrets: uses the same `SLACK_WEBHOOK_URL`. The workflow uses the default `${{ github.token }}` to call the GitHub API.
+
+Example workflow (already included):
+
+```yaml
+name: Notify Slack of Open PRs
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+
+jobs:
+  get_prs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dependencies
+        run: pip install requests pyyaml
+      - name: Run PR notifier
+        run: python scripts/get_pr_data_to_slack.py
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          GITHUB_TOKEN: ${{ github.token }}
+```
 
