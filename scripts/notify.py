@@ -9,9 +9,20 @@ from dateutil import parser
 # Configure logging
 logging.basicConfig(level=logging.ERROR, format='%(asctime)s - %(levelname)s - %(message)s')
 
+def _build_github_headers():
+    headers = {'Accept': 'application/vnd.github+json'}
+    token = os.environ.get('GITHUB_TOKEN') or os.environ.get('GH_TOKEN')
+    if token:
+        headers['Authorization'] = f'Bearer {token}'
+    return headers
+
 def get_new_issues(owner, repo, cutoff_time):
     repo_url = f'https://api.github.com/repos/{owner}/{repo}/issues'
-    response = requests.get(repo_url, params={'since': cutoff_time.isoformat()})
+    response = requests.get(
+        repo_url,
+        params={'since': cutoff_time.isoformat()},
+        headers=_build_github_headers()
+    )
     response.raise_for_status()
     all_issues = response.json()
     

@@ -11,9 +11,18 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      # permissions for GitHub App token step to read repo metadata are covered by app installation
     steps:
       - name: Check out code
         uses: actions/checkout@v4
+
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.GITHUB_APP_ID }}
+          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+          owner: ConductionNL
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -27,5 +36,5 @@ jobs:
         run: python scripts/get_pr_data_to_slack.py
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
 
