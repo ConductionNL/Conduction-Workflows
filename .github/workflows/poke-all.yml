@@ -1,0 +1,49 @@
+name: Org maintenance poke
+
+on:
+  schedule:
+    - cron: "0 5 * * 1" # elke maandag 05:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  poke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.GITHUB_APP_ID }}
+          private-key: ${{ secrets.GITHUB_APP_PRIVATE_KEY }}
+          owner: ConductionNL
+
+      - name: Setup gh
+        uses: actions/setup-gh-cli@v2
+
+      - name: Iterate repos and trigger workflows
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          ORG: ConductionNL
+          WORKFLOW_FILE: get-pr-data.yml
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Haal een (aanpasbare) lijst met repos op; filter desgewenst
+          mapfile -t repos < <(gh repo list "$ORG" --limit 200 --json nameWithOwner -q '.[].nameWithOwner')
+          for r in "${repos[@]}"; do
+            echo "Poking $r -> $WORKFLOW_FILE"
+            # 1) enable workflow (idempotent)
+            gh api -X PUT "/repos/$r/actions/workflows/$WORKFLOW_FILE/enable" || true
+            # 2a) workflow_dispatch gericht
+            if ! gh api -X POST "/repos/$r/actions/workflows/$WORKFLOW_FILE/dispatches" -f ref=main -F inputs:='{}'; then
+              echo "workflow_dispatch failed for $r/$WORKFLOW_FILE, fallback to repository_dispatch"
+              # 2b) generieke fallback
+              gh api -X POST "/repos/$r/dispatches" -f event_type='maintenance-ping' || true
+            fi
+          done
+
+
